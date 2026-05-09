@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID RUNNER — Deep Space Survival</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+body{font-family:'Share Tech Mono',monospace;color:#0ff}
+
+#wrap{position:relative;width:100vw;height:100vh}
+canvas{position:absolute;top:0;left:0;display:block}
+
+#hud{position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:10;padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start}
+.hud-block{display:flex;flex-direction:column;gap:2px}
+.hud-block.center{align-items:center}
+.hud-label{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:3px;opacity:.6}
+.hud-value{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:700;letter-spacing:4px}
+.hud-value.green{color:#0f8;text-shadow:0 0 14px #0f8,0 0 30px #0f84}
+.hud-value.blue{color:#88f;text-shadow:0 0 14px #88f,0 0 30px #88f4}
+.hud-value.orange{color:#f80;text-shadow:0 0 14px #f80,0 0 30px #f804}
+.hud-label.green{color:#0f8}
+.hud-label.blue{color:#88f}
+.hud-label.orange{color:#f80}
+
+#boostbar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:200px;pointer-events:none;z-index:10}
+.boost-label{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:#0ff8;text-align:center;margin-bottom:4px}
+.boost-track{width:100%;height:4px;background:rgba(0,255,255,.12);border:0.5px solid rgba(0,255,255,.25);border-radius:2px;overflow:hidden}
+.boost-fill{height:100%;background:linear-gradient(90deg,#0f8,#0ff);border-radius:2px;transition:width .1s}
+
+#overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;pointer-events:none}
+#overlay > div{display:flex;flex-direction:column;align-items:center;pointer-events:all}
+
+.title{font-family:'Orbitron',sans-serif;font-size:clamp(32px,6vw,64px);font-weight:900;letter-spacing:8px;color:#0ff;text-shadow:0 0 20px #0ff,0 0 60px #0ff6,0 0 100px #0ff2;margin-bottom:6px;animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{text-shadow:0 0 20px #0ff,0 0 60px #0ff6}50%{text-shadow:0 0 30px #0ff,0 0 80px #0ff9,0 0 120px #0ff4}}
+
+.tagline{font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:4px;color:#0f8a;margin-bottom:48px}
+.hi-score-disp{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:3px;color:#88f8;margin-bottom:28px}
+
+.btn{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:4px;padding:14px 44px;border:1px solid #0ff;background:transparent;color:#0ff;cursor:pointer;text-shadow:0 0 10px #0ff;box-shadow:0 0 20px #0ff2,inset 0 0 20px #0ff0;transition:all .25s;margin:5px;position:relative;overflow:hidden}
+.btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(0,255,255,.15),transparent);transition:left .4s}
+.btn:hover::before{left:100%}
+.btn:hover{background:rgba(0,255,255,.08);box-shadow:0 0 40px #0ff5,inset 0 0 30px #0ff2;transform:scale(1.03)}
+.btn:active{transform:scale(.97)}
+
+.hint-row{display:flex;gap:32px;margin-top:28px}
+.hint-item{font-size:10px;letter-spacing:2px;color:#0ff5;text-align:center}
+.hint-key{display:inline-block;border:0.5px solid #0ff5;padding:2px 8px;border-radius:3px;margin-right:4px;font-size:9px}
+
+.gameover-title{font-family:'Orbitron',sans-serif;font-size:clamp(24px,5vw,52px);font-weight:900;letter-spacing:6px;color:#f44;text-shadow:0 0 20px #f44,0 0 60px #f446;margin-bottom:10px;animation:shake .5s ease-in-out}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.score-line{font-family:'Orbitron',sans-serif;font-size:16px;letter-spacing:3px;color:#0f8;margin:6px 0 4px}
+.hi-line{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:3px;color:#88f8;margin-bottom:36px}
+
+#levelup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-size:clamp(18px,4vw,38px);font-weight:900;letter-spacing:6px;color:#f80;text-shadow:0 0 20px #f80,0 0 60px #f806;pointer-events:none;z-index:15;opacity:0;transition:opacity .3s}
+#levelup.show{opacity:1}
+
+#scanlines{position:absolute;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:25}
+#vignette{position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 50%,transparent 50%,rgba(0,0,0,.75) 100%);pointer-events:none;z-index:26}
+
+#bgm-btn{position:absolute;bottom:20px;right:20px;z-index:30;background:rgba(0,255,255,.08);border:0.5px solid rgba(0,255,255,.25);color:#0ff8;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;padding:6px 12px;cursor:pointer;transition:all .25s;pointer-events:all}
+#bgm-btn:hover{background:rgba(0,255,255,.2)}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="bg"></canvas>
+  <canvas id="game"></canvas>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
+
+  <div id="hud">
+    <div class="hud-block">
+      <span class="hud-label green">SCORE</span>
+      <span class="hud-value green" id="scoreVal">000000</span>
+    </div>
+    <div class="hud-block center">
+      <span class="hud-label blue">SECTOR</span>
+      <span class="hud-value blue" id="levelVal">01</span>
+    </div>
+    <div class="hud-block" style="align-items:flex-end">
+      <span class="hud-label orange">SHIELDS</span>
+      <span class="hud-value orange" id="shieldsVal">&#9826; &#9826; &#9826;</span>
+    </div>
+  </div>
+
+  <div id="boostbar">
+    <div class="boost-label">THRUSTER</div>
+    <div class="boost-track"><div class="boost-fill" id="boostFill" style="width:100%"></div></div>
+  </div>
+
+  <div id="levelup">&#9761; SECTOR ADVANCED &#9761;</div>
+
+  <button id="bgm-btn">&#9835; BGM: ON</button>
+
+  <audio id="bgmAudio" loop preload="auto">
+    <source src="bgm.mp3" type="audio/mpeg">
+  </audio>
+
+  <div id="overlay">
+    <div id="startScreen">
+      <div class="title">VOID RUNNER</div>
+      <div class="tagline">&mdash; DEEP SPACE SURVIVAL &mdash;</div>
+      <div class="hi-score-disp" id="hiScoreDisp">HI-SCORE: 000000</div>
+      <button class="btn" onclick="startGame()">&#9654; LAUNCH MISSION</button>
+      <div class="hint-row">
+        <div class="hint-item"><span class="hint-key">WASD</span> or <span class="hint-key">&#8593;&#8595;&#8592;&#8594;</span> NAVIGATE</div>
+        <div class="hint-item"><span class="hint-key">SHIFT</span> BOOST</div>
+      </div>
+    </div>
+    <div id="gameoverScreen" class="hidden">
+      <div class="gameover-title">SHIP DESTROYED</div>
+      <div class="score-line" id="finalScore">SCORE: 000000</div>
+      <div class="hi-line" id="finalHi">BEST: 000000</div>
+      <button class="btn" onclick="startGame()">&#9654; RETRY MISSION</button>
+      <button class="btn" onclick="showStart()" style="font-size:10px;padding:10px 30px;opacity:.7;margin-top:2px">MAIN MENU</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Image Assets ────────────────────────────────────────────────────────────
+const images = {};
+const imageFiles = {
+  rocket: 'spaceRockets_003.png',
+  bgStar: 'Starfield_07-512x512.png',
+  planets: ['planet00.png','planet01.png','planet02.png','planet03.png','planet04.png','planet05.png','planet06.png','planet07.png','planet08.png','planet09.png']
+};
+let assetsLoaded = false;
+let loadCount = 0;
+const totalAssets = 1 + 1 + imageFiles.planets.length;
+
+function loadAssets(callback) {
+  function onLoad() { loadCount++; if (loadCount >= totalAssets) { assetsLoaded = true; if (callback) callback(); } }
+  images.rocket = new Image(); images.rocket.src = imageFiles.rocket; images.rocket.onload = onLoad;
+  images.bgStar = new Image(); images.bgStar.src = imageFiles.bgStar; images.bgStar.onload = onLoad;
+  images.planets = [];
+  imageFiles.planets.forEach((f, i) => {
+    images.planets[i] = new Image();
+    images.planets[i].src = f;
+    images.planets[i].onload = onLoad;
+  });
+}
+
+// ─── Audio System ────────────────────────────────────────────────────────────
+let audioCtx = null;
+let masterGain = null;
+let sfxGain = null;
+let engineOsc = null;
+let engineGain = null;
+let engineRunning = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.5;
+  masterGain.connect(audioCtx.destination);
+  sfxGain = audioCtx.createGain();
+  sfxGain.gain.value = 0.4;
+  sfxGain.connect(masterGain);
+}
+
+function toggleBGM() {
+  const bgm = document.getElementById('bgmAudio');
+  const btn = document.getElementById('bgm-btn');
+  if (bgm.paused) {
+    bgm.volume = 0.08;
+    bgm.play().catch(() => {});
+    btn.textContent = '\u266B BGM: ON';
+  } else {
+    bgm.pause();
+    btn.textContent = '\u266B BGM: OFF';
+  }
+}
+document.getElementById('bgm-btn').addEventListener('click', toggleBGM);
+
+function startEngine() {
+  if (!audioCtx || engineRunning) return;
+  engineOsc = audioCtx.createOscillator();
+  engineGain = audioCtx.createGain();
+  engineOsc.type = 'sawtooth';
+  engineOsc.frequency.value = 55;
+  engineGain.gain.value = 0;
+  engineOsc.connect(engineGain);
+  engineGain.connect(sfxGain);
+  engineOsc.start();
+  engineRunning = true;
+}
+
+function updateEngine(thrustPct) {
+  if (!engineRunning || !engineOsc || !engineGain) return;
+  const f = 55 + thrustPct * 120;
+  engineOsc.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.05);
+  engineGain.gain.setTargetAtTime(thrustPct * 0.12, audioCtx.currentTime, 0.05);
+}
+
+function stopEngine() {
+  if (!engineRunning) return;
+  try {
+    if (engineGain) engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+    setTimeout(() => {
+      try { if (engineOsc) { engineOsc.stop(); engineOsc.disconnect(); } } catch(e) {}
+      engineRunning = false;
+    }, 200);
+  } catch(e) {}
+}
+
+function playSfx(type) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = sfxGain;
+
+  switch (type) {
+    case 'hit': {
+      const noise = audioCtx.createBufferSource();
+      const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.15, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      noise.buffer = buf;
+      const ng = audioCtx.createGain(); ng.gain.setValueAtTime(0.3, now); ng.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 800;
+      noise.connect(f); f.connect(ng); ng.connect(g);
+      noise.start(now); noise.stop(now + 0.15);
+      break;
+    }
+    case 'explosion': {
+      const noise = audioCtx.createBufferSource();
+      const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.6, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 1.5);
+      noise.buffer = buf;
+      const ng = audioCtx.createGain(); ng.gain.setValueAtTime(0.5, now); ng.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+      const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(600, now); f.frequency.exponentialRampToValueAtTime(60, now + 0.6);
+      noise.connect(f); f.connect(ng); ng.connect(g);
+      noise.start(now); noise.stop(now + 0.6);
+      // low rumble
+      const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(80, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
+      const og = audioCtx.createGain(); og.gain.setValueAtTime(0.4, now); og.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.connect(og); og.connect(g); osc.start(now); osc.stop(now + 0.5);
+      break;
+    }
+    case 'boost': {
+      const osc = audioCtx.createOscillator(); osc.type = 'sine';
+      osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+      const og = audioCtx.createGain(); og.gain.setValueAtTime(0.15, now); og.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.connect(og); og.connect(g); osc.start(now); osc.stop(now + 0.25);
+      break;
+    }
+    case 'levelup': {
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator(); osc.type = 'square'; osc.frequency.value = freq;
+        const og = audioCtx.createGain(); og.gain.setValueAtTime(0.08, now + i * 0.1); og.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.15);
+        osc.connect(og); og.connect(g); osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.15);
+      });
+      break;
+    }
+    case 'gameover': {
+      [400, 350, 300, 200].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = freq;
+        const og = audioCtx.createGain(); og.gain.setValueAtTime(0.1, now + i * 0.15); og.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.25);
+        osc.connect(og); og.connect(g); osc.start(now + i * 0.15); osc.stop(now + i * 0.15 + 0.25);
+      });
+      break;
+    }
+    case 'select': {
+      const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 880;
+      const og = audioCtx.createGain(); og.gain.setValueAtTime(0.1, now); og.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      osc.connect(og); og.connect(g); osc.start(now); osc.stop(now + 0.08);
+      break;
+    }
+  }
+}
+
+// ─── Canvas setup ────────────────────────────────────────────────────────────
+const bgC = document.getElementById('bg'), bgX = bgC.getContext('2d');
+const gc = document.getElementById('game'), ctx = gc.getContext('2d');
+let W, H;
+function resize() {
+  W = gc.width = bgC.width = window.innerWidth;
+  H = gc.height = bgC.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); initBg(); });
+
+// ─── Utils ───────────────────────────────────────────────────────────────────
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const px6 = n => String(Math.floor(n)).padStart(6, '0');
+
+// ─── Background ───────────────────────────────────────────────────────────────
+let bgOffset = 0;
+function drawBg(dt) {
+  bgOffset += dt * 30;
+  bgX.fillStyle = '#000';
+  bgX.fillRect(0, 0, W, H);
+
+  if (images.bgStar && images.bgStar.complete) {
+    bgX.globalAlpha = 0.1;
+    const sw = images.bgStar.naturalWidth, sh = images.bgStar.naturalHeight;
+    for (let y = -1; y < Math.ceil(H / sh) + 1; y++) {
+      for (let x = -1; x < Math.ceil(W / sw) + 1; x++) {
+        bgX.drawImage(images.bgStar, x * sw + (bgOffset * 0.05) % sw, y * sh, sw, sh);
+      }
+    }
+    bgX.globalAlpha = 1;
+  }
+}
+function drawStarfield() {
+  if (images.bgStar && images.bgStar.complete) {
+    ctx.globalAlpha = 0.5;
+    const sw = images.bgStar.naturalWidth, sh = images.bgStar.naturalHeight;
+    const off = (Date.now() * 0.008) % sw;
+    for (let y = -1; y < Math.ceil(H / sh) + 1; y++) {
+      for (let x = -1; x < Math.ceil(W / sw) + 1; x++) {
+        ctx.drawImage(images.bgStar, x * sw + off, y * sh, sw, sh);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Shift'].includes(e.key)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ─── Game state ───────────────────────────────────────────────────────────────
+let state = 'idle';
+let score = 0, lives = 3, level = 1, hiScore = 0;
+let frame = 0, elapsed = 0, lastTime = 0;
+let rocket, obstacles = [], particles = [], shockwaves = [];
+let spawnTimer = 0, spawnInterval = 1.4;
+let boost = 1.0, boostRegen = false;
+let levelupTimer = 0;
+let screenShake = { x: 0, y: 0, t: 0, i: 0 };
+let timeoutIDs = [];
+const BOOST_MAX = 1.0, BOOST_DRAIN = 0.45, BOOST_REGEN = 0.18;
+
+function clearTimeouts() { timeoutIDs.forEach(id => clearTimeout(id)); timeoutIDs = []; }
+function setST(fn, ms) { const id = setTimeout(fn, ms); timeoutIDs.push(id); return id; }
+
+// ─── HUD update (cached DOM, throttle) ───────────────────────────────────────
+const shieldPips = ['&#9826; &#9826; &#9826;','&#9826; &#9826; &#9670;','&#9826; &#9670; &#9670;','&#9670; &#9670; &#9670;'];
+const hudEl = {
+  score: document.getElementById('scoreVal'),
+  level: document.getElementById('levelVal'),
+  shields: document.getElementById('shieldsVal'),
+  boost: document.getElementById('boostFill')
+};
+let lastHUD = { score: -1, level: -1, shields: -1, boost: -1 };
+function updateHUD() {
+  const s = Math.floor(score), lv = level, sh = clamp(3 - lives, 0, 3), bst = Math.floor(boost * 100);
+  if (s !== lastHUD.score) { hudEl.score.textContent = px6(s); lastHUD.score = s; }
+  if (lv !== lastHUD.level) { hudEl.level.textContent = String(lv).padStart(2, '0'); lastHUD.level = lv; }
+  if (sh !== lastHUD.shields) { hudEl.shields.innerHTML = shieldPips[sh]; lastHUD.shields = sh; }
+  if (bst !== lastHUD.boost) { hudEl.boost.style.width = bst + '%'; lastHUD.boost = bst; }
+}
+
+// ─── Rocket ──────────────────────────────────────────────────────────────────
+function createRocket() {
+  const img = images.rocket;
+  const scale = 0.075;
+  // Image is 235x630 (portrait). Rotated 90° → width=630*scale, height=235*scale
+  const w = img ? img.naturalHeight * scale : 48;
+  const h = img ? img.naturalWidth * scale : 18;
+  const trail = [];
+  for (let i = 0; i < 30; i++) trail.push({ x: 0, y: 0 });
+  return {
+    x: W * 0.18, y: H / 2,
+    vx: 0, vy: 0,
+    w, h,
+    imgScale: scale,
+    invincible: 0,
+    thrustPct: 0,
+    trail, trailIdx: 0, trailLen: 0,
+    tilt: 0
+  };
+}
+
+function drawRocket(r) {
+  if (r.invincible > 0 && Math.floor(r.invincible * 8) % 2 === 0) return;
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  const targetTilt = clamp(r.vy * 0.04, -0.5, 0.5);
+  r.tilt += (targetTilt - r.tilt) * 0.12;
+  ctx.rotate(r.tilt);
+
+  // Engine glow (behind rocket — left side)
+  const eg = ctx.createRadialGradient(-r.w * 0.42, 0, 0, -r.w * 0.42, 0, r.w * 0.45);
+  eg.addColorStop(0, 'rgba(255,160,40,.9)');
+  eg.addColorStop(0.4, 'rgba(255,60,0,.45)');
+  eg.addColorStop(1, 'rgba(255,40,0,0)');
+  ctx.fillStyle = eg;
+  ctx.beginPath(); ctx.arc(-r.w * 0.42, 0, r.w * 0.45, 0, Math.PI * 2); ctx.fill();
+
+  // Thrust flame
+  const fl = r.thrustPct;
+  if (fl > 0.01) {
+    const flameLen = r.w * 0.35 + fl * r.w * 0.6;
+    const grad = ctx.createLinearGradient(-r.w * 0.35, 0, -r.w * 0.35 - flameLen, 0);
+    grad.addColorStop(0, `rgba(255,220,80,${0.9 + fl * 0.1})`);
+    grad.addColorStop(0.4, `rgba(255,100,20,${0.7 * fl})`);
+    grad.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(-r.w * 0.35, -5 - fl * 3);
+    ctx.lineTo(-r.w * 0.35 - flameLen, rnd(-2, 2));
+    ctx.lineTo(-r.w * 0.35, 5 + fl * 3);
+    ctx.closePath(); ctx.fill();
+
+    if (Math.random() < 0.5) {
+      const f2 = ctx.createLinearGradient(-r.w * 0.35, 0, -r.w * 0.35 - flameLen * 0.6, 0);
+      f2.addColorStop(0, 'rgba(120,220,255,.5)');
+      f2.addColorStop(1, 'rgba(0,150,255,0)');
+      ctx.fillStyle = f2;
+      ctx.beginPath();
+      ctx.moveTo(-r.w * 0.35, -3);
+      ctx.lineTo(-r.w * 0.35 - flameLen * 0.6, rnd(-1.5, 1.5));
+      ctx.lineTo(-r.w * 0.35, 3);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // Rocket sprite — image faces UP, rotate 90° CW so it faces RIGHT
+  if (images.rocket && images.rocket.complete) {
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 16;
+    const iw = images.rocket.naturalWidth, ih = images.rocket.naturalHeight;
+    ctx.drawImage(images.rocket, -iw * r.imgScale * 0.5, -ih * r.imgScale * 0.5, iw * r.imgScale, ih * r.imgScale);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// ─── Obstacles ────────────────────────────────────────────────────────────────
+function spawnObstacle() {
+  const isPlanet = Math.random() < 0.45;
+  if (isPlanet) {
+    const sz = rnd(28, 70);
+    const y = rnd(sz + 20, H - sz - 20);
+    const baseSpd = 120 + level * 30;
+    const spd = rnd(baseSpd * 0.8, baseSpd * 1.3);
+    const imgIdx = Math.floor(rnd(0, images.planets.length));
+    obstacles.push({
+      x: W + sz + 20, y, sz, isPlanet, spd,
+      imgIdx,
+      rot: rnd(0, Math.PI * 2),
+      rotSpd: rnd(-0.02, 0.02)
+    });
+  } else {
+    const sz = rnd(14, 32);
+    const y = rnd(sz + 20, H - sz - 20);
+    const baseSpd = 120 + level * 30;
+    const spd = rnd(baseSpd * 0.8, baseSpd * 1.3);
+    const hue = Math.floor(rnd(0, 360));
+    const pts = Math.floor(rnd(6, 10));
+    const verts = [];
+    for (let i = 0; i < pts; i++) {
+      const a = (i / pts) * Math.PI * 2;
+      const r2 = sz * rnd(0.6, 1.0);
+      verts.push({ x: Math.cos(a) * r2, y: Math.sin(a) * r2 });
+    }
+    obstacles.push({
+      x: W + sz + 20, y, sz, isPlanet, spd, hue, verts,
+      rot: rnd(0, Math.PI * 2),
+      rotSpd: rnd(-0.06, 0.06)
+    });
+  }
+}
+
+function drawObstacle(o) {
+  ctx.save();
+  ctx.translate(o.x, o.y);
+
+  if (o.isPlanet) {
+    ctx.rotate(o.rot);
+    const img = images.planets[o.imgIdx];
+    if (img && img.complete) {
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      const scale = (o.sz * 2) / Math.max(iw, ih);
+      ctx.shadowColor = '#0ff'; ctx.shadowBlur = 20;
+      ctx.globalAlpha = 0.92;
+      ctx.drawImage(img, -iw * scale * 0.5, -ih * scale * 0.5, iw * scale, ih * scale);
+      ctx.globalAlpha = 1;
+    }
+  } else {
+    // Custom canvas-drawn meteorite
+    ctx.rotate(o.rot);
+    const mg = ctx.createRadialGradient(-o.sz * 0.25, -o.sz * 0.25, 0, 0, 0, o.sz);
+    mg.addColorStop(0, `hsl(${o.hue},45%,70%)`);
+    mg.addColorStop(0.5, `hsl(${o.hue},35%,40%)`);
+    mg.addColorStop(1, `hsl(${o.hue},25%,12%)`);
+    ctx.shadowColor = `hsl(${o.hue + 20},70%,60%)`; ctx.shadowBlur = 8;
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    if (o.verts.length > 0) {
+      ctx.moveTo(o.verts[0].x, o.verts[0].y);
+      o.verts.slice(1).forEach(v => ctx.lineTo(v.x, v.y));
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,220,120,.3)`; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(0,0,0,.3)`; ctx.lineWidth = 0.6;
+    if (o.verts.length > 2) {
+      ctx.beginPath();
+      ctx.moveTo(o.verts[0].x * 0.5, o.verts[0].y * 0.5);
+      ctx.lineTo(o.verts[2].x * 0.5, o.verts[2].y * 0.5);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// ─── Particles ────────────────────────────────────────────────────────────────
+function spawnParticles(x, y, colors, count, speedMin = 1, speedMax = 5) {
+  for (let i = 0; i < count; i++) {
+    const a = rnd(0, Math.PI * 2);
+    const sp = rnd(speedMin, speedMax);
+    const col = Array.isArray(colors) ? colors[Math.floor(Math.random() * colors.length)] : colors;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp,
+      life: 1,
+      decay: rnd(0.012, 0.04),
+      r: rnd(1.5, 5),
+      col,
+      glow: Math.random() > 0.5
+    });
+  }
+}
+
+function addShockwave(x, y) {
+  shockwaves.push({ x, y, r: 0, maxR: Math.max(W, H) * 0.35, life: 1 });
+}
+
+// ─── Collision ────────────────────────────────────────────────────────────────
+function collides(r, o) {
+  const dx = r.x - o.x, dy = r.y - o.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const hitR = o.isPlanet ? o.sz * 0.55 : o.sz * 0.6;
+  return dist < hitR + r.w * 0.2;
+}
+
+// ─── Level up ────────────────────────────────────────────────────────────────
+function showLevelUp() {
+  const el = document.getElementById('levelup');
+  el.textContent = `&#9761; SECTOR ${String(level).padStart(2, '0')} &#9761;`;
+  el.classList.add('show');
+  levelupTimer = 2;
+  setST(() => el.classList.remove('show'), 1800);
+  playSfx('levelup');
+}
+
+// ─── Screen shake ─────────────────────────────────────────────────────────────
+function triggerShake(intensity, duration) {
+  screenShake.t = duration;
+  screenShake.i = intensity;
+}
+
+// ─── Game flow ────────────────────────────────────────────────────────────────
+function showStart() {
+  document.getElementById('gameoverScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  document.getElementById('hiScoreDisp').textContent = `HI-SCORE: ${px6(hiScore)}`;
+  state = 'idle';
+  stopEngine();
+}
+
+function startGame() {
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameoverScreen').classList.add('hidden');
+  initAudio();
+  playSfx('select');
+  clearTimeouts();
+
+  score = 0; lives = 3; level = 1; frame = 0; elapsed = 0;
+  obstacles = []; particles = []; shockwaves = [];
+  spawnTimer = 0; spawnInterval = 1.4;
+  boost = BOOST_MAX; boostRegen = false;
+  screenShake = { x: 0, y: 0, t: 0, i: 0 };
+
+  rocket = createRocket();
+  updateHUD();
+  state = 'playing';
+  lastTime = performance.now();
+  startEngine();
+
+  // Reset and play BGM from start (low volume)
+  const bgm = document.getElementById('bgmAudio');
+  const btn = document.getElementById('bgm-btn');
+  bgm.pause();
+  bgm.currentTime = 0;
+  bgm.volume = 0.08;
+  bgm.play().catch(() => {});
+  btn.textContent = '\u266B BGM: ON';
+}
+
+function gameOver() {
+  state = 'over';
+  stopEngine();
+  if (score > hiScore) hiScore = score;
+  addShockwave(rocket.x, rocket.y);
+  spawnParticles(rocket.x, rocket.y, ['#ff8040','#ffcc00','#ff4040','#ffffff'], 80, 1, 8);
+  triggerShake(12, 0.6);
+  playSfx('explosion');
+  setST(() => {
+    playSfx('gameover');
+    document.getElementById('finalScore').textContent = `SCORE: ${px6(score)}`;
+    document.getElementById('finalHi').textContent   = `BEST:  ${px6(hiScore)}`;
+    document.getElementById('gameoverScreen').classList.remove('hidden');
+  }, 1400);
+}
+
+// ─── Main loop ────────────────────────────────────────────────────────────────
+let nextLevelScore = 800;
+const GRID_SPACING = 90;
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  drawBg(dt);
+  ctx.clearRect(0, 0, W, H);
+
+  let sx = 0, sy = 0;
+  if (screenShake.t > 0) {
+    screenShake.t -= dt;
+    const mag = screenShake.i * (screenShake.t / 0.6);
+    sx = rnd(-mag, mag); sy = rnd(-mag, mag);
+  }
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  drawStarfield();
+
+  ctx.save(); ctx.globalAlpha = 0.035; ctx.strokeStyle = '#0ff'; ctx.lineWidth = 0.5;
+  const gOff = (elapsed * 20) % GRID_SPACING;
+  for (let x = -gOff; x < W + GRID_SPACING; x += GRID_SPACING) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H + GRID_SPACING; y += GRID_SPACING) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  ctx.restore();
+
+  if (state === 'playing') {
+    elapsed += dt;
+    frame++;
+
+    score += dt * 40;
+    if (score >= nextLevelScore) {
+      level++;
+      nextLevelScore += 800 + level * 300;
+      spawnInterval = Math.max(0.38, spawnInterval * 0.9);
+      showLevelUp();
+    }
+    updateHUD();
+
+    let ax = 0, ay = 0;
+    if (keys['ArrowLeft']  || keys['a'] || keys['A']) ax -= 1;
+    if (keys['ArrowRight'] || keys['d'] || keys['D']) ax += 1;
+    if (keys['ArrowUp']    || keys['w'] || keys['W']) ay -= 1;
+    if (keys['ArrowDown']  || keys['s'] || keys['S']) ay += 1;
+    if (ax !== 0 && ay !== 0) { ax *= 0.707; ay *= 0.707; }
+
+    const boosting = (keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight']) && boost > 0;
+    const boostMult = boosting ? 1.7 : 1.0;
+    if (boosting) {
+      boost = Math.max(0, boost - BOOST_DRAIN * dt);
+      boostRegen = false;
+    } else {
+      if (!boostRegen && boost < BOOST_MAX) boostRegen = true;
+      if (boostRegen) boost = Math.min(BOOST_MAX, boost + BOOST_REGEN * dt);
+    }
+
+    const speed = 340 * boostMult;
+    const inputMag = Math.sqrt(ax * ax + ay * ay);
+    rocket.thrustPct = clamp(inputMag * boostMult, 0, 1);
+    updateEngine(rocket.thrustPct);
+
+    rocket.vx += (ax * speed - rocket.vx) * (1 - Math.pow(0.01, dt));
+    rocket.vy += (ay * speed - rocket.vy) * (1 - Math.pow(0.01, dt));
+    rocket.x = clamp(rocket.x + rocket.vx * dt, rocket.w * 0.55, W - rocket.w * 0.55);
+    rocket.y = clamp(rocket.y + rocket.vy * dt, rocket.h * 0.7, H - rocket.h * 0.7);
+
+    const tArr = rocket.trail;
+    tArr[rocket.trailIdx].x = rocket.x;
+    tArr[rocket.trailIdx].y = rocket.y;
+    rocket.trailIdx = (rocket.trailIdx + 1) % tArr.length;
+    if (rocket.trailLen < tArr.length) rocket.trailLen++;
+    const count = rocket.trailLen;
+    for (let i = 1; i < count; i++) {
+      const idx = (rocket.trailIdx - 1 - i + tArr.length) % tArr.length;
+      const t = tArr[idx];
+      const pct = i / count;
+      const a = (1 - pct) * 0.3;
+      const size = (1 - pct) * 4;
+      ctx.beginPath();
+      ctx.arc(t.x - rocket.w * 0.25, t.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = boosting ? `rgba(80,200,255,${a})` : `rgba(0,255,160,${a})`;
+      ctx.fill();
+    }
+
+    if (rocket.thrustPct > 0.05) {
+      const rate = boosting ? 3 : 1;
+      for (let i = 0; i < rate; i++) {
+        if (Math.random() < 0.8) {
+          const ea = Math.PI + (Math.random() - 0.5) * 0.7;
+          const espd = rnd(40, 120) * rocket.thrustPct;
+          const hue = boosting ? rnd(180, 220) : rnd(20, 60);
+          particles.push({
+            x: rocket.x - rocket.w * 0.25 + rnd(-3, 3),
+            y: rocket.y + rnd(-4, 4),
+            vx: Math.cos(ea) * espd * dt * 60 * 0.12,
+            vy: Math.sin(ea) * espd * dt * 60 * 0.12 + rocket.vy * dt * 0.5,
+            life: 1, decay: rnd(0.04, 0.09),
+            r: rnd(1.5, 3.5),
+            col: `hsl(${hue},100%,70%)`,
+            glow: true
+          });
+        }
+      }
+    }
+
+    spawnTimer += dt;
+    if (spawnTimer >= spawnInterval) {
+      spawnObstacle();
+      if (Math.random() < 0.2 + level * 0.03) {
+        setST(() => { if (state === 'playing') spawnObstacle(); }, rnd(200, 500));
+      }
+      spawnTimer = 0;
+    }
+
+    const toRemove = [];
+    obstacles.forEach((o, i) => {
+      o.x -= o.spd * dt;
+      o.rot += o.rotSpd;
+      drawObstacle(o);
+
+      if (rocket.invincible <= 0 && collides(rocket, o)) {
+        lives--;
+        updateHUD();
+        rocket.invincible = 2.5;
+        triggerShake(8, 0.4);
+        spawnParticles(rocket.x, rocket.y, ['#f84', '#ff0', '#f44'], 18);
+        playSfx('hit');
+        if (lives <= 0) gameOver();
+      }
+
+      if (o.x < -o.sz * 2.5) toRemove.push(i);
+    });
+    toRemove.reverse().forEach(i => obstacles.splice(i, 1));
+
+    if (rocket.invincible > 0) rocket.invincible -= dt;
+
+    drawRocket(rocket);
+
+    if (boosting) {
+      const pulse = 0.4 + 0.3 * Math.sin(elapsed * 20);
+      ctx.save();
+      ctx.strokeStyle = `rgba(80,220,255,${pulse})`;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#0ff'; ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(rocket.x, rocket.y, rocket.w * 0.7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      if (Math.random() < 0.03) playSfx('boost');
+    }
+  }
+
+  let si = 0;
+  while (si < shockwaves.length) {
+    const sw = shockwaves[si];
+    sw.r += 380 * dt;
+    sw.life -= 1.8 * dt;
+    if (sw.life <= 0) { shockwaves[si] = shockwaves[shockwaves.length - 1]; shockwaves.pop(); continue; }
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,120,0,${sw.life * 0.8})`;
+    ctx.lineWidth = 3 * sw.life;
+    ctx.shadowColor = '#f80'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,200,0,${sw.life * 0.4})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(sw.x, sw.y, sw.r * 1.1, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    si++;
+  }
+
+  let pi = 0;
+  while (pi < particles.length) {
+    const p = particles[pi];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.life -= p.decay;
+    if (p.life <= 0) { particles[pi] = particles[particles.length - 1]; particles.pop(); continue; }
+    ctx.save();
+    if (p.glow) { ctx.shadowColor = p.col; ctx.shadowBlur = 8; }
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    pi++;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.025;
+  ctx.fillStyle = '#0ff';
+  ctx.fillRect(0, (elapsed * 80) % H, W, 2);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+loadAssets();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
